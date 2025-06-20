@@ -45,7 +45,7 @@ print("[INFO] CNN model loaded successfully.")
 test_dir = "data/deepfake/test"  # Ensure test images are inside this folder with class-wise subfolders
 
 transform = transforms.Compose(
-    [transforms.Resize((224, 224)), transforms.ToTensor()]
+    [transforms.Resize((128, 128)), transforms.ToTensor()]
 )
 
 test_dataset = datasets.ImageFolder(test_dir, transform=transform)
@@ -134,8 +134,8 @@ report = classification_report(
     all_labels, all_preds, target_names=class_names, output_dict=True
 )
 df_report = pd.DataFrame(report).transpose()
-df_report.to_csv("results/classification_report.csv")
-print("[INFO] Classification report saved to results/classification_report.csv")
+df_report.to_csv("results/classification_report_cnn.xlxs")
+print("[INFO] Classification report saved to results/classification_report_cnn.xlxs")
 
 # =======================
 # Step 7: Confusion Matrix
@@ -163,8 +163,8 @@ actual_labels = [class_names[l] for l in all_labels]
 df_predictions = pd.DataFrame(
     {"Image Path": image_paths, "Actual Label": actual_labels, "Predicted Label": predicted_labels}
 )
-df_predictions.to_csv("results/predictions.csv", index=False)
-print("[INFO] Predictions saved to results/predictions.csv")
+df_predictions.to_csv("results/predictions_cnn.xlsx", index=False)
+print("[INFO] Predictions saved to results/predictions_cnn.xlsx")
 
 # =======================
 # Step 9: Show Sample Predictions (Images with Labels)
