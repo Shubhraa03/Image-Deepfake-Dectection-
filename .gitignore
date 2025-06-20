@@ -1,0 +1,27 @@
+# Ignore Python cache
+__pycache__/
+*.pyc
+
+# Ignore venv
+venv/
+
+# Ignore models
+*.pth
+
+# Ignore dataset & logs
+data/
+logs/
+
+# Ignore results & temp reports
+results/
+*.csv
+*.xlsx
+*.png
+
+# Ignore test/demo images
+Frontend/images/
+*.jpg
+*.jpeg
+
+# Ignore editor config
+.vscode/

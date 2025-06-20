@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deepfake AI Image Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom global styles */
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        /* Light mode base */
+        .light-mode {
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            color: #1f2937; /* Tailwind gray-800 */
+            /* Placeholder for light mode background image if desired */
+            background-image: url('images/bg1.jpg'); 
+            background-size: cover;
+            background-position: center;
+        }
+
+        /* Dark mode base */
+        .dark-mode {
+            background-color: #1f2937; /* Tailwind gray-800 */
+            color: #f3f4f6; /* Tailwind gray-100 */
+            /* Placeholder for dark mode background image if desired */
+            background-image: url('images/bg2.jpg'); 
+            background-size: cover;
+            background-position: center;
+        }
+
+        .drop-zone-active {
+            border-color: #4f46e5;
+            background-color: rgba(79, 70, 229, 0.05);
+        }
+
+        .model-button-active {
+            background-color: #4f46e5 !important;
+            color: white !important;
+            font-weight: 600;
+        }
+
+        .progress-bar-bg {
+            background-color: #e5e7eb;
+        }
+        .dark-mode .progress-bar-bg {
+            background-color: #4b5563;
+        }
+        .progress-bar-fill {
+            background-color: #4f46e5;
+            transition: width 0.5s ease-in-out;
+        }
+
+        /* Specific colors for deepfake likelihood bars */
+        .progress-bar-fake { background-color: #ef4444; } /* Red */
+        .progress-bar-real { background-color: #22c55e; } /* Green */
+
+
+        .custom-dropdown-button::after {
+            content: '▼';
+            font-size: 0.7em;
+            margin-left: 8px;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #4f46e5;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .dark-mode .spinner {
+            border-left-color: #818cf8;
+        }
+
+        /* Grad-CAM specific styles */
+        .gradcam-overlay-container {
+            position: relative;
+            display: inline-block; /* To contain image and canvas */
+            max-width: 100%; /* Ensure it fits */
+            margin: auto; /* Center it */
+        }
+        .gradcam-original-image {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem; /* rounded-md */
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); /* shadow-md */
+        }
+        .gradcam-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through to elements below */
+        }
+    </style>
+</head>
+<body class="light-mode">
+
+    <button id="theme-toggle" class="fixed top-4 right-4 sm:top-6 sm:right-6 p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors z-50" aria-label="Toggle theme">
+        <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-yellow-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-15.66l-.707.707M4.04 19.96l-.707.707M21 12h-1M4 12H3m15.66 8.66l-.707-.707M4.747 4.747l-.707-.707M12 12a5 5 0 100-10 5 5 0 000 10z" />
+        </svg>
+        <svg id="moonIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+        </svg>
+    </button>
+
+    <div class="container mx-auto min-h-screen flex flex-col items-center justify-center p-4 pt-16 sm:pt-4">
+        <div class="bg-white dark:bg-gray-800 shadow-2xl rounded-xl p-6 sm:p-10 w-full max-w-lg transition-colors duration-500">
+
+            <div class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">Deepfake Detector</h1>
+                <p class="text-sm sm:text-md text-gray-600 dark:text-gray-300 mt-2">Unveiling the Truth in Pixels. Analyze images for authenticity.</p>
+            </div>
+
+            <!-- Removed "1. Choose Analysis Model" section -->
+
+            <div class="mb-6">
+                <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-3 text-center">1. Upload Image</h2>
+                <div id="drop-zone" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 sm:p-10 text-center cursor-pointer hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors duration-200">
+                    <p class="text-gray-500 dark:text-gray-400">Drag & Drop Image Here</p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">or</p>
+                </div>
+                <div class="mt-4 text-center">
+                    <div class="relative inline-block text-left">
+                        <button type="button" id="upload-dropdown-button" class="custom-dropdown-button inline-flex justify-center w-full rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-800 focus:ring-indigo-500">
+                            Upload from
+                        </button>
+                        <div id="upload-options" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white dark:bg-gray-700 ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10">
+                            <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="upload-dropdown-button">
+                                <a href="#" class="upload-option-item text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-source="desktop">Desktop / Device</a>
+                                <a href="#" class="upload-option-item text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-source="drive">Drive (Simulated)</a>
+                                <a href="#" class="upload-option-item text-gray-700 dark:text-gray-200 block px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600" role="menuitem" data-source="gallery">Gallery (Simulated)</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <input type="file" id="fileInput" accept="image/*" class="hidden" />
+                <p id="file-error-message" class="text-red-500 text-xs text-center mt-2 h-4"></p>
+            </div>
+
+            <div id="preview-container" class="mb-6 min-h-[200px] sm:min-h-[250px] flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-700 rounded-lg p-4 transition-all duration-300">
+                <div id="preview-placeholder" class="text-center text-gray-400 dark:text-gray-500">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p>Image preview will appear here</p>
+                </div>
+                <img id="imagePreview" src="#" alt="Uploaded Image Preview" class="hidden max-w-full max-h-64 object-contain rounded-md shadow-md"/>
+                <p id="imageFilename" class="text-xs text-gray-500 dark:text-gray-400 mt-2"></p>
+            </div>
+
+            <div class="mb-6 text-center">
+                <button id="analyzeBtn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800">
+                    Analyze Image
+                </button>
+            </div>
+
+            <div id="loading-indicator" class="hidden flex-col items-center justify-center my-6">
+                <div class="spinner"></div>
+                <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">Analyzing image, please wait...</p>
+            </div>
+
+            <div id="model-comparison-section" class="hidden">
+                <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4 text-center">2. Model Comparison Results</h2>
+                <div class="space-y-4">
+                    <div id="efficientnet-results" class="bg-indigo-50 dark:bg-indigo-900/40 rounded-lg p-4 shadow-sm border border-indigo-200 dark:border-indigo-700">
+                        <h3 class="font-bold text-lg text-indigo-700 dark:text-indigo-300 mb-2 flex items-center justify-between">
+                            EfficientNet
+                            <span class="text-xs font-normal text-indigo-500 dark:text-indigo-400"> (Best Accuracy!)</span>
+                        </h3>
+                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            <span>Confidence</span>
+                            <span id="efficientnetConfidence">- %</span>
+                        </div>
+                        <div class="w-full progress-bar-bg rounded-full h-2.5 mb-2">
+                            <div id="efficientnetConfidenceBar" class="progress-bar-fill h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            <span>Deepfake Likelihood</span>
+                            <span id="efficientnetLikelihood">- %</span>
+                        </div>
+                        <div class="w-full progress-bar-bg rounded-full h-2.5">
+                            <div id="efficientnetLikelihoodBar" class="progress-bar-fill h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div id="cnn-results" class="bg-white dark:bg-gray-700 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-600">
+                        <h3 class="font-bold text-lg text-gray-700 dark:text-gray-200 mb-2">CNN</h3>
+                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            <span>Confidence</span>
+                            <span id="cnnConfidence">- %</span>
+                        </div>
+                        <div class="w-full progress-bar-bg rounded-full h-2.5 mb-2">
+                            <div id="cnnConfidenceBar" class="progress-bar-fill h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <div class="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                            <span>Deepfake Likelihood</span>
+                            <span id="cnnLikelihood">- %</span>
+                        </div>
+                        <div class="w-full progress-bar-bg rounded-full h-2.5">
+                            <div id="cnnLikelihoodBar" class="progress-bar-fill h-2.5 rounded-full" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="overall-best-result" class="text-center mt-6 p-3 rounded-md bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                    <p class="font-semibold text-lg"></p>
+                </div>
+            </div>
+
+            <div id="gradcam-section" class="hidden mt-8 text-center">
+                <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4">3. Model's Focus (Grad-CAM)</h2>
+                <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                    This heatmap highlights the regions considered most important for its prediction.
+                    **Redder areas** indicate higher importance.
+                </p>
+                <div id="gradcam-image-container" class="gradcam-overlay-container">
+                    <img id="gradcamOriginalImage" src="#" alt="Original Image" class="gradcam-original-image" />
+                    <canvas id="gradcamCanvas" class="gradcam-canvas"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+        const bodyEl = document.body;
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadDropdownButton = document.getElementById('upload-dropdown-button');
+        const uploadOptions = document.getElementById('upload-options');
+        const previewContainer = document.getElementById('preview-container');
+        const previewPlaceholder = document.getElementById('preview-placeholder');
+        const imagePreview = document.getElementById('imagePreview');
+        const imageFilename = document.getElementById('imageFilename');
+
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // NEW: Model Comparison Section Elements
+        const modelComparisonSection = document.getElementById('model-comparison-section');
+        const efficientnetConfidence = document.getElementById('efficientnetConfidence');
+        const efficientnetConfidenceBar = document.getElementById('efficientnetConfidenceBar');
+        const efficientnetLikelihood = document.getElementById('efficientnetLikelihood');
+        const efficientnetLikelihoodBar = document.getElementById('efficientnetLikelihoodBar');
+
+        const cnnConfidence = document.getElementById('cnnConfidence');
+        const cnnConfidenceBar = document.getElementById('cnnConfidenceBar');
+        const cnnLikelihood = document.getElementById('cnnLikelihood');
+        const cnnLikelihoodBar = document.getElementById('cnnLikelihoodBar');
+
+        const overallBestResult = document.getElementById('overall-best-result').querySelector('p');
+
+        // NEW: Grad-CAM Section Elements
+        const gradcamSection = document.getElementById('gradcam-section');
+        const gradcamOriginalImage = document.getElementById('gradcamOriginalImage');
+        const gradcamCanvas = document.getElementById('gradcamCanvas');
+        const gradcamImageContainer = document.getElementById('gradcam-image-container');
+
+
+        const fileErrorMessage = document.getElementById('file-error-message');
+        // Removed modelSelectionErrorMessage
+
+        let currentTheme = localStorage.getItem('theme') || 'light';
+        let currentFileForAnalysis = null;
+
+        // --- Theme Management ---
+        function applyTheme(theme) {
+            if (theme === 'dark') {
+                bodyEl.classList.remove('light-mode');
+                bodyEl.classList.add('dark-mode');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                bodyEl.classList.remove('dark-mode');
+                bodyEl.classList.add('light-mode');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+            localStorage.setItem('theme', theme);
+            currentTheme = theme;
+            document.documentElement.classList.toggle('dark', theme === 'dark');
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+        });
+
+        applyTheme(currentTheme);
+        if (currentTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+
+        // --- File Upload & Preview Logic ---
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drop-zone-active');
+        });
+
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drop-zone-active');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                prepareFileForAnalysis(files[0]);
+            }
+        });
+
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        uploadDropdownButton.addEventListener('click', () => {
+            uploadOptions.classList.toggle('hidden');
+        });
+
+        document.querySelectorAll('.upload-option-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                fileInput.click();
+                uploadOptions.classList.add('hidden');
+            });
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!uploadDropdownButton.contains(event.target) && !uploadOptions.contains(event.target)) {
+                uploadOptions.classList.add('hidden');
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                prepareFileForAnalysis(files[0]);
+            }
+        });
+
+        function displayFileError(message) {
+            fileErrorMessage.textContent = message;
+            setTimeout(() => {
+                fileErrorMessage.textContent = '';
+            }, 3000);
+        }
+
+        // Removed displayModelError function
+
+
+        function prepareFileForAnalysis(file) {
+            fileErrorMessage.textContent = ''; // Clear previous file errors
+
+            if (!file || !file.type.startsWith('image/')) {
+                displayFileError('Please upload a valid image file.');
+                fileInput.value = ''; // Reset file input
+                return;
+            }
+
+            // Store the file for later analysis
+            currentFileForAnalysis = file;
+
+            // Show preview
+            previewPlaceholder.classList.add('hidden');
+            imagePreview.src = URL.createObjectURL(file);
+            imagePreview.classList.remove('hidden');
+            imageFilename.textContent = `File: ${file.name}`;
+            previewContainer.classList.remove('min-h-[200px]', 'sm:min-h-[250px]', 'bg-gray-50', 'dark:bg-gray-700');
+            previewContainer.classList.add('p-2');
+
+            // Hide previous results and loading indicator, show analyze button
+            modelComparisonSection.classList.add('hidden');
+            gradcamSection.classList.add('hidden');
+            loadingIndicator.classList.add('hidden');
+            loadingIndicator.classList.remove('flex');
+            analyzeBtn.classList.remove('hidden');
+
+            fileInput.value = ''; // Reset file input to allow re-uploading the same file
+        }
+
+        // --- Grad-CAM Drawing Function ---
+        async function drawGradCamHeatmap(base64Image, base64Heatmap) {
+            const ctx = gradcamCanvas.getContext('2d');
+
+            // Load original image
+            const img = new Image();
+            img.src = base64Image;
+
+            await new Promise(resolve => { img.onload = resolve; }); // Wait for image to load
+
+            // Set canvas dimensions to match the image
+            gradcamCanvas.width = img.width;
+            gradcamCanvas.height = img.height;
+            gradcamImageContainer.style.width = `${img.width}px`; // Ensure container matches image width
+            gradcamImageContainer.style.height = `${img.height}px`; // Ensure container matches image height
+
+            // Set the original image src directly for the img element in HTML
+            gradcamOriginalImage.src = base64Image;
+
+            // Load heatmap image
+            const heatmapImg = new Image();
+            heatmapImg.src = base64Heatmap;
+
+            await new Promise(resolve => { heatmapImg.onload = resolve; }); // Wait for heatmap to load
+
+            // Draw heatmap over the original image with transparency
+            ctx.clearRect(0, 0, gradcamCanvas.width, gradcamCanvas.height); // Clear previous heatmap
+            ctx.globalAlpha = 0.5; // Adjust transparency (0.4 to 0.7 usually works well)
+            ctx.drawImage(heatmapImg, 0, 0, gradcamCanvas.width, gradcamCanvas.height);
+            ctx.globalAlpha = 1.0; // Reset globalAlpha for other drawings
+        }
+
+
+        // --- Analysis Trigger ---
+        analyzeBtn.addEventListener('click', () => {
+            if (!currentFileForAnalysis) {
+                displayFileError("No file selected for analysis.");
+                return;
+            }
+
+            // Hide analyze button, show loading indicator
+            analyzeBtn.classList.add('hidden');
+            loadingIndicator.classList.remove('hidden');
+            loadingIndicator.classList.add('flex');
+            modelComparisonSection.classList.add('hidden'); // Ensure results are hidden before new analysis
+            gradcamSection.classList.add('hidden');
+
+            const formData = new FormData();
+            formData.append("image", currentFileForAnalysis);
+
+            console.log("Sending image to backend for analysis...");
+
+            fetch("http://localhost:5000/predict", { // Ensure this matches your Flask endpoint
+                method: "POST",
+                body: formData
+            })
+            .then(response => {
+                console.log("Received response from backend:", response);
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Server error: ${response.status} ${response.statusText} - ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Data received:", data);
+
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+                modelComparisonSection.classList.remove('hidden');
+
+// --- Populate Model Comparison Results ---
+                let overallResultConfidence = -1; // To track the highest confidence across models for the OVERALL result
+                let overallResultModelName = "";
+                let overallResultLabel = ""; // To store the label of the overall best model
+
+
+                data.predictions.forEach(p => {
+                    const modelName = p.model_name; // Keep original casing for display
+                    const confidence = parseFloat(p.confidence);
+                    const label = p.label.toLowerCase(); // Use lower case for internal logic
+
+                    // Calculate deepfake likelihood (0 = very real, 1 = very fake)
+                    let deepfakeLikelihood = (label === "fake") ? confidence : (1.0 - confidence);
+                    deepfakeLikelihood = Math.max(0, Math.min(1, deepfakeLikelihood)); // Clamp between 0 and 1
+
+                    const displayConfidence = (confidence * 100).toFixed(2);
+                    const displayLikelihood = (deepfakeLikelihood * 100).toFixed(2);
+
+                    let confidenceEl, confidenceBarEl, likelihoodEl, likelihoodBarEl;
+
+                    if (modelName === "EfficientNet") { // Use original casing here
+                        confidenceEl = efficientnetConfidence;
+                        confidenceBarEl = efficientnetConfidenceBar;
+                        likelihoodEl = efficientnetLikelihood;
+                        likelihoodBarEl = efficientnetLikelihoodBar;
+                    } else if (modelName === "CNN") { // Use original casing here
+                        confidenceEl = cnnConfidence;
+                        confidenceBarEl = cnnConfidenceBar;
+                        likelihoodEl = cnnLikelihood;
+                        likelihoodBarEl = cnnLikelihoodBar;
+                    }
+
+                    if (confidenceEl && confidenceBarEl && likelihoodEl && likelihoodBarEl) {
+                        confidenceEl.textContent = `${displayConfidence} %`;
+                        confidenceBarEl.style.width = `${displayConfidence}%`;
+
+                        likelihoodEl.textContent = `${displayLikelihood} %`;
+                        likelihoodBarEl.style.width = `${displayLikelihood}%`;
+
+                        likelihoodBarEl.classList.remove('progress-bar-fake', 'progress-bar-real', 'bg-indigo-600');
+                        if (deepfakeLikelihood > 0.5) {
+                            likelihoodBarEl.classList.add('progress-bar-fake');
+                        } else {
+                            likelihoodBarEl.classList.add('progress-bar-real');
+                        }
+                    }
+
+                    // --- NEW LOGIC for Overall Result Selection ---
+                    // Select the model with the highest confidence in its *own* prediction
+                    if (confidence > overallResultConfidence) {
+                        overallResultConfidence = confidence;
+                        overallResultModelName = modelName;
+                        overallResultLabel = label; // Store the label (real/fake) of the best model
+                    }
+                    // --- END NEW LOGIC ---
+                });
+
+                // --- Set overall result based on the model with highest confidence ---
+                let overallText = "";
+                let overallBgClass = "";
+                let overallTextColorClass = "";
+
+                // Recalculate deepfake likelihood for the overall best model
+                let overallDeepfakeLikelihood = (overallResultLabel === "fake") ? overallResultConfidence : (1.0 - overallResultConfidence);
+                overallDeepfakeLikelihood = Math.max(0, Math.min(1, overallDeepfakeLikelihood)); // Clamp
+
+                if (overallDeepfakeLikelihood >= 0.75) {
+                    overallText = `${overallResultModelName} (Highest Confidence) suggests: High Likelihood of Deepfake`;
+                    overallBgClass = 'bg-red-100 dark:bg-red-900';
+                    overallTextColorClass = 'text-red-700 dark:text-red-300';
+                } else if (overallDeepfakeLikelihood >= 0.40) {
+                    overallText = `${overallResultModelName} (High Confidence) suggests: Moderate Likelihood of Deepfake`;
+                    overallBgClass = 'bg-yellow-100 dark:bg-yellow-700';
+                    overallTextColorClass = 'text-yellow-700 dark:text-yellow-200';
+                } else { // Low Deepfake Likelihood
+                    overallText = `${overallResultModelName} (Highest Confidence) suggests: Low Likelihood of Deepfake / Likely Authentic`;
+                    overallBgClass = 'bg-green-100 dark:bg-green-900';
+                    overallTextColorClass = 'text-green-700 dark:text-green-300';
+                }
+
+                overallBestResult.textContent = overallText;
+                overallBestResult.parentElement.className = `text-center mt-6 p-3 rounded-md ${overallBgClass} ${overallTextColorClass}`;
+
+                // ... (rest of the .then(data => ...) block remains the same) ...
+
+
+                // --- Handle Dynamic Grad-CAM ---
+                if (data.dynamic_grad_cam && currentFileForAnalysis && data.grad_cam_model_name) {
+                    const originalImageBase64 = imagePreview.src; // Data URL from URL.createObjectURL
+                    drawGradCamHeatmap(originalImageBase64, data.dynamic_grad_cam);
+                    
+                    // Update Grad-CAM section title dynamically
+                    const gradCamTitle = gradcamSection.querySelector('h2');
+                    gradCamTitle.textContent = `3. Model's Focus (${data.grad_cam_model_name}) (Grad-CAM)`;
+
+                    gradcamSection.classList.remove('hidden');
+                } else {
+                    gradcamSection.classList.add('hidden'); // Hide if no Grad-CAM data
+                }
+
+
+                if (window.innerWidth < 768) {
+                    modelComparisonSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            })
+            .catch(error => {
+                console.error("Error during API call:", error);
+                loadingIndicator.classList.add('hidden');
+                loadingIndicator.classList.remove('flex');
+
+                modelComparisonSection.classList.remove('hidden');
+                overallBestResult.textContent = 'Analysis Failed. Check console for details.';
+                overallBestResult.parentElement.className = 'text-center mt-6 p-3 rounded-md bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300';
+
+                [efficientnetConfidence, cnnConfidence].forEach(el => el.textContent = '- %');
+                [efficientnetLikelihood, cnnLikelihood].forEach(el => el.textContent = '- %');
+                [efficientnetConfidenceBar, cnnConfidenceBar, efficientnetLikelihoodBar, cnnLikelihoodBar].forEach(bar => {
+                    bar.style.width = '0%';
+                    bar.classList.remove('progress-bar-fake', 'progress-bar-real');
+                });
+                gradcamSection.classList.add('hidden');
+            });
+        });
+
+        // Initial UI State
+        function resetToInitialState() {
+            previewPlaceholder.classList.remove('hidden');
+            imagePreview.classList.add('hidden');
+            imagePreview.src = '#';
+            imageFilename.textContent = '';
+            previewContainer.classList.add('min-h-[200px]', 'sm:min-h-[250px]', 'bg-gray-50', 'dark:bg-gray-700', 'p-4');
+            previewContainer.classList.remove('p-2');
+
+            modelComparisonSection.classList.add('hidden');
+            gradcamSection.classList.add('hidden');
+            loadingIndicator.classList.add('hidden');
+            loadingIndicator.classList.remove('flex');
+            analyzeBtn.classList.add('hidden');
+
+            currentFileForAnalysis = null;
+
+            fileErrorMessage.textContent = '';
+            // Removed modelSelectionErrorMessage.textContent = '';
+
+            const ctx = gradcamCanvas.getContext('2d');
+            ctx.clearRect(0, 0, gradcamCanvas.width, gradcamCanvas.height);
+            gradcamOriginalImage.src = '#'; // Clear the image as well
+        }
+
+        resetToInitialState();
+    </script>
+</body>
+</html>
