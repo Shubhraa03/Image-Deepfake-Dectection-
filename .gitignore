@@ -6,7 +6,7 @@ __pycache__/
 venv/
 
 # Ignore models
-*.pth
+#*.pth
 
 # Ignore dataset & logs
 data/

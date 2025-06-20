@@ -75,7 +75,13 @@ saved_models/
 └── cnn_model.pth
 ```
 
-### 5. (Optional) Dataset Structure for Training
+## 📦 Dataset
+
+This project uses a deepfake image dataset available on Kaggle.
+
+🔗 [Kaggle - Deepfake and Real Images Dataset](https://www.kaggle.com/datasets/manjilkarki/deepfake-and-real-images)
+
+### Dataset Structure (after manual download):
 
 ```
 data/deepfake/
@@ -99,12 +105,12 @@ data/deepfake/
 venv\Scripts\activate.bat
 
 # Run the backend
-python withUpdatedEff.py
+python Backend/withUpdatedEff.py
 ```
 
 ### 2. Open the Frontend
 
-Open `Frontend/index.html` in your browser manually or use VS Code Live Server.
+Open `Frontend/maychoose.html` in your browser manually or use VS Code Live Server.
 
 ### 3. Upload Image for Analysis
 
@@ -116,27 +122,40 @@ Open `Frontend/index.html` in your browser manually or use VS Code Live Server.
 
 ```
 deepfake-detection/
-├── app.py                  # Flask backend(currently named as withUpdatedEff.py under the backend folder)
+├── Backend/
+│   └── withUpdatedEff.py      # Flask backend
 ├── Frontend/
-│   └── index.html          # Web UI (currently named as maychoose.html)
+│   └── maychoose.html         # Web UI
 ├── models/
-│   └── cnn.py              # CNN model class
+│   ├── cnn.py                 # CNN model architecture
+│   └── efficientnet_model.py # EfficientNet loading
 ├── saved_models/
 │   ├── cnn_model.pth
-│   └── efficientnet_deepfake_best.pth
-├── train.py                # CNN training script
-├── test.py                 # CNN testing script
-├── finalEfficientNet_train.py    # EfficientNet training script
-├── testEfficientNet.py    # EfficientNet evaluation
+│   └── final_EfficientNet_model.pth
+├── train.py                  # CNN training script
+├── test.py                   # CNN testing script
+├── finalEfficientNet_train.py   # EfficientNet training
+├── testEfficientNet.py          # EfficientNet testing
 ├── requirements.txt
+├── config/
+│   └── config.yaml           # (optional)
+├── utils/
+│   └── dataset_loader.py     # CNN dataset loader
 └── README.md
 ```
 
 ## 📊 Model Evaluation & Explainability
 
-* CNN and EfficientNet both output confidence scores
-* The model with higher confidence is used for Grad-CAM
-* Grad-CAM highlights important regions influencing the decision
+* Both CNN and EfficientNet are trained for **binary classification**:
+
+  * `Real` → class `1`
+  * `Fake` → class `0`
+* CNN uses raw image tensors with no normalization.
+* EfficientNet uses standard image **normalization**:
+
+  * Mean: `[0.485, 0.456, 0.406]`
+  * Std: `[0.229, 0.224, 0.225]`
+* Models output confidence scores, and the **most confident** model is used for **Grad-CAM** heatmap generation.
 
 ## 🌱 Future Improvements
 
@@ -146,8 +165,7 @@ deepfake-detection/
 * 📦 Docker containerization
 * 👥 Feedback loop for user-reported accuracy
 
-
-##  Acknowledgements
+## 🙏 Acknowledgements
 
 * [PyTorch](https://pytorch.org)
 * [pytorch-grad-cam](https://github.com/jacobgil/pytorch-grad-cam)
